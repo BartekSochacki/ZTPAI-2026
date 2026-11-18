@@ -1,0 +1,767 @@
+openapi: 3.0.3
+info:
+  title: Fitness Club API
+  version: 1.0.0
+  description: |
+    REST API systemu zapisów na zajęcia w klubie fitness.
+    Kliknij "Authorize" i wklej token JWT otrzymany z /api/auth/login.
+servers:
+  - url: /api
+tags:
+  - name: Auth
+  - name: Users
+  - name: Trainers
+  - name: Memberships
+  - name: Rooms
+  - name: ClassTypes
+  - name: Sessions
+  - name: Enrollments
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer, minimum: 1 }
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 10 }
+  responses:
+    BadRequest:
+      description: Błąd walidacji danych wejściowych
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unauthorized:
+      description: Brak lub nieprawidłowy token
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Forbidden:
+      description: Brak uprawnień (rola)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: Zasób nie istnieje
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Conflict:
+      description: Konflikt (duplikat, kolizja terminu, konflikt wersji)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    BusinessRule:
+      description: Naruszenie reguły biznesowej
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string, example: NO_ACTIVE_MEMBERSHIP }
+            message: { type: string }
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  field: { type: string }
+                  message: { type: string }
+    PageMeta:
+      type: object
+      properties:
+        page: { type: integer }
+        limit: { type: integer }
+        total: { type: integer }
+        totalPages: { type: integer }
+    User:
+      type: object
+      properties:
+        id: { type: integer }
+        email: { type: string }
+        firstName: { type: string }
+        lastName: { type: string }
+        role: { type: string, enum: [MEMBER, TRAINER, ADMIN] }
+        createdAt: { type: string, format: date-time }
+    AuthResponse:
+      type: object
+      properties:
+        token: { type: string }
+        user: { $ref: '#/components/schemas/User' }
+    RegisterRequest:
+      type: object
+      required: [email, password, firstName, lastName]
+      properties:
+        email: { type: string, format: email, example: nowy@fitness.local }
+        password: { type: string, minLength: 8, example: Haslo123! }
+        firstName: { type: string, example: Adam }
+        lastName: { type: string, example: Mazur }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, example: jan@fitness.local }
+        password: { type: string, example: Member123! }
+    Trainer:
+      type: object
+      properties:
+        id: { type: integer }
+        firstName: { type: string }
+        lastName: { type: string }
+    Membership:
+      type: object
+      properties:
+        id: { type: integer }
+        userId: { type: integer }
+        type: { type: string, enum: [MONTHLY, QUARTERLY, ANNUAL] }
+        startDate: { type: string, format: date }
+        endDate: { type: string, format: date }
+        status: { type: string, enum: [ACTIVE, EXPIRED, CANCELLED] }
+        createdAt: { type: string, format: date-time }
+        user:
+          type: object
+          properties:
+            email: { type: string }
+            firstName: { type: string }
+            lastName: { type: string }
+    MembershipRequest:
+      type: object
+      required: [userId, type, startDate]
+      properties:
+        userId: { type: integer, example: 7 }
+        type: { type: string, enum: [MONTHLY, QUARTERLY, ANNUAL] }
+        startDate: { type: string, format: date, example: '2026-12-01' }
+    Room:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        capacity: { type: integer }
+    RoomRequest:
+      type: object
+      required: [name, capacity]
+      properties:
+        name: { type: string, example: Sala C }
+        capacity: { type: integer, example: 20 }
+    ClassType:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        description: { type: string, nullable: true }
+    ClassTypeRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, example: Zumba }
+        description: { type: string, nullable: true }
+    Session:
+      type: object
+      properties:
+        id: { type: integer }
+        classType:
+          type: object
+          properties: { id: { type: integer }, name: { type: string } }
+        trainer: { $ref: '#/components/schemas/Trainer' }
+        room:
+          type: object
+          properties: { id: { type: integer }, name: { type: string } }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        capacity: { type: integer }
+        status: { type: string, enum: [SCHEDULED, CANCELLED] }
+        version: { type: integer }
+        enrolledCount: { type: integer }
+        waitlistCount: { type: integer }
+        freeSpots: { type: integer }
+    SessionRequest:
+      type: object
+      required: [classTypeId, trainerId, roomId, startsAt, endsAt, capacity]
+      properties:
+        classTypeId: { type: integer, example: 1 }
+        trainerId: { type: integer, example: 2 }
+        roomId: { type: integer, example: 1 }
+        startsAt: { type: string, format: date-time, example: '2026-12-01T10:00:00+01:00' }
+        endsAt: { type: string, format: date-time, example: '2026-12-01T11:00:00+01:00' }
+        capacity: { type: integer, example: 10 }
+    SessionUpdateRequest:
+      allOf:
+        - $ref: '#/components/schemas/SessionRequest'
+        - type: object
+          required: [version]
+          properties:
+            version: { type: integer, description: Wersja do optimistic locking, example: 1 }
+    Enrollment:
+      type: object
+      properties:
+        id: { type: integer }
+        sessionId: { type: integer }
+        userId: { type: integer }
+        status: { type: string, enum: [ENROLLED, WAITLISTED, CANCELLED] }
+        waitlistPosition: { type: integer, nullable: true }
+        createdAt: { type: string, format: date-time }
+        session:
+          type: object
+          properties:
+            id: { type: integer }
+            classTypeName: { type: string }
+            roomName: { type: string }
+            trainerName: { type: string }
+            startsAt: { type: string, format: date-time }
+            endsAt: { type: string, format: date-time }
+            status: { type: string }
+    Participant:
+      type: object
+      properties:
+        enrollmentId: { type: integer }
+        userId: { type: integer }
+        firstName: { type: string }
+        lastName: { type: string }
+        email: { type: string }
+        status: { type: string, enum: [ENROLLED, WAITLISTED] }
+        enrolledAt: { type: string, format: date-time }
+security:
+  - bearerAuth: []
+paths:
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Rejestracja nowego członka (rola MEMBER)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterRequest' }
+      responses:
+        '201':
+          description: Utworzono konto
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Logowanie, zwraca token JWT
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: Zalogowano
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Dane zalogowanego użytkownika
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /trainers:
+    get:
+      tags: [Trainers]
+      summary: Lista trenerów (do filtrów)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Trainer' }
+  /users:
+    get:
+      tags: [Users]
+      summary: Lista użytkowników (ADMIN) z paginacją i wyszukiwaniem
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: role
+          in: query
+          schema: { type: string, enum: [MEMBER, TRAINER, ADMIN] }
+        - name: search
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/User' }
+                  meta: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /users/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Users]
+      summary: Szczegóły użytkownika (ADMIN)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Users]
+      summary: Usunięcie użytkownika (ADMIN, nie można usunąć siebie)
+      responses:
+        '204': { description: Usunięto }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/BusinessRule' }
+  /users/{id}/role:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    patch:
+      tags: [Users]
+      summary: Zmiana roli użytkownika (ADMIN)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                role: { type: string, enum: [MEMBER, TRAINER, ADMIN] }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/BusinessRule' }
+  /memberships:
+    get:
+      tags: [Memberships]
+      summary: Lista karnetów (ADMIN) z paginacją i filtrami
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: userId
+          in: query
+          schema: { type: integer }
+        - name: status
+          in: query
+          schema: { type: string, enum: [ACTIVE, EXPIRED, CANCELLED] }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Membership' }
+                  meta: { $ref: '#/components/schemas/PageMeta' }
+    post:
+      tags: [Memberships]
+      summary: Przyznanie karnetu członkowi (ADMIN)
+      description: Data końca liczona z typu (30/90/365 dni). Karnety nie mogą się nakładać.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MembershipRequest' }
+      responses:
+        '201':
+          description: Utworzono
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Membership' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/BusinessRule' }
+  /memberships/me:
+    get:
+      tags: [Memberships]
+      summary: Moje karnety (MEMBER)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  active:
+                    allOf:
+                      - $ref: '#/components/schemas/Membership'
+                    nullable: true
+                  history:
+                    type: array
+                    items: { $ref: '#/components/schemas/Membership' }
+  /memberships/{id}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    patch:
+      tags: [Memberships]
+      summary: Anulowanie karnetu (ADMIN)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Membership' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/BusinessRule' }
+  /rooms:
+    get:
+      tags: [Rooms]
+      summary: Lista sal
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Room' }
+    post:
+      tags: [Rooms]
+      summary: Dodanie sali (ADMIN)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RoomRequest' }
+      responses:
+        '201':
+          description: Utworzono
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Room' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /rooms/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Rooms]
+      summary: Szczegóły sali
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Room' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [Rooms]
+      summary: Edycja sali (ADMIN)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RoomRequest' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Room' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Rooms]
+      summary: Usunięcie sali (ADMIN, niemożliwe gdy są w niej zajęcia)
+      responses:
+        '204': { description: Usunięto }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /class-types:
+    get:
+      tags: [ClassTypes]
+      summary: Lista typów zajęć
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ClassType' }
+    post:
+      tags: [ClassTypes]
+      summary: Dodanie typu zajęć (ADMIN)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ClassTypeRequest' }
+      responses:
+        '201':
+          description: Utworzono
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClassType' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /class-types/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [ClassTypes]
+      summary: Szczegóły typu zajęć
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClassType' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [ClassTypes]
+      summary: Edycja typu zajęć (ADMIN)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ClassTypeRequest' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClassType' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [ClassTypes]
+      summary: Usunięcie typu zajęć (ADMIN)
+      responses:
+        '204': { description: Usunięto }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /sessions:
+    get:
+      tags: [Sessions]
+      summary: Grafik zajęć z filtrowaniem i paginacją
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: dateFrom
+          in: query
+          schema: { type: string, format: date }
+        - name: dateTo
+          in: query
+          schema: { type: string, format: date }
+        - name: classTypeId
+          in: query
+          schema: { type: integer }
+        - name: trainerId
+          in: query
+          schema: { type: integer }
+        - name: roomId
+          in: query
+          schema: { type: integer }
+        - name: includePast
+          in: query
+          schema: { type: string, enum: ['true', 'false'], default: 'false' }
+        - name: includeCancelled
+          in: query
+          schema: { type: string, enum: ['true', 'false'], default: 'false' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Session' }
+                  meta: { $ref: '#/components/schemas/PageMeta' }
+    post:
+      tags: [Sessions]
+      summary: Dodanie zajęć do grafiku (ADMIN)
+      description: Sprawdza kolizje sali i trenera oraz pojemność sali.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SessionRequest' }
+      responses:
+        '201':
+          description: Utworzono
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Session' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/BusinessRule' }
+  /sessions/mine:
+    get:
+      tags: [Sessions]
+      summary: Zajęcia prowadzone przez zalogowanego trenera (TRAINER)
+      parameters:
+        - name: includePast
+          in: query
+          schema: { type: string, enum: ['true', 'false'], default: 'false' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Session' }
+  /sessions/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Sessions]
+      summary: Szczegóły zajęć
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Session' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [Sessions]
+      summary: Edycja zajęć (ADMIN, optimistic locking przez pole version)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SessionUpdateRequest' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Session' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/BusinessRule' }
+    delete:
+      tags: [Sessions]
+      summary: Usunięcie zajęć (ADMIN)
+      responses:
+        '204': { description: Usunięto }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /sessions/{id}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    patch:
+      tags: [Sessions]
+      summary: Odwołanie zajęć (ADMIN) - anuluje zapisy i wysyła e-maile
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Session' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/BusinessRule' }
+  /sessions/{id}/participants:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Sessions]
+      summary: Lista uczestników (ADMIN lub trener prowadzący te zajęcia)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Participant' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /enrollments:
+    post:
+      tags: [Enrollments]
+      summary: Zapis na zajęcia (MEMBER)
+      description: |
+        Wymaga aktywnego karnetu w dniu zajęć. Gdy brak miejsc, użytkownik trafia
+        na listę rezerwową (status WAITLISTED).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sessionId]
+              properties:
+                sessionId: { type: integer, example: 1 }
+      responses:
+        '201':
+          description: Zapisano (ENROLLED) lub dodano do listy rezerwowej (WAITLISTED)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Enrollment' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/BusinessRule' }
+  /enrollments/me:
+    get:
+      tags: [Enrollments]
+      summary: Moje zapisy (MEMBER)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Enrollment' }
+  /enrollments/{id}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    patch:
+      tags: [Enrollments]
+      summary: Rezygnacja z zajęć (najpóźniej 2h przed startem)
+      description: Zwolnione miejsce asynchronicznie zajmuje pierwsza osoba z listy rezerwowej (event + e-mail).
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Enrollment' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/BusinessRule' }
