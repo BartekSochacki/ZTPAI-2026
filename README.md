@@ -144,6 +144,11 @@ docs/ERD.md         diagram modelu danych
 
 - **ERD**: [docs/ERD.md](docs/ERD.md)
 - **REST API**: Swagger UI pod `/api/docs`, specyfikacja w [backend/src/docs/openapi.yaml](backend/src/docs/openapi.yaml)
+- **Scenariusz demo**: [docs/DEMO.md](docs/DEMO.md)
+
+### Wersja do oceny
+
+Ostateczna wersja projektu jest oznaczona tagiem `v1.0`. Zmiany wprowadzone po tym tagu nie wchodzą do oceny.
 
 ### Przegląd endpointów
 
