@@ -29,6 +29,10 @@ class AppError extends Error {
   static businessRule(message, code = 'BUSINESS_RULE_VIOLATION') {
     return new AppError(422, code, message);
   }
+
+  static paymentDeclined(message, code = 'PAYMENT_DECLINED') {
+    return new AppError(402, code, message);
+  }
 }
 
 module.exports = AppError;

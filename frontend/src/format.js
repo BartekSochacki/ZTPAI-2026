@@ -34,3 +34,9 @@ export const ENROLLMENT_LABELS = { ENROLLED: 'Zapisany', WAITLISTED: 'Lista reze
 export const MEMBERSHIP_LABELS = { MONTHLY: 'Miesięczny', QUARTERLY: 'Kwartalny', ANNUAL: 'Roczny' };
 
 export const MEMBERSHIP_STATUS_LABELS = { ACTIVE: 'Aktywny', EXPIRED: 'Wygasły', CANCELLED: 'Anulowany' };
+
+export const PAYMENT_STATUS_LABELS = { SUCCEEDED: 'Opłacona', DECLINED: 'Odrzucona' };
+
+export function formatPrice(amount) {
+  return `${(amount / 100).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} zł`;
+}

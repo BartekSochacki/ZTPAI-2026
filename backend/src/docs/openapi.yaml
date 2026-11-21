@@ -67,6 +67,11 @@ components:
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
+    PaymentDeclined:
+      description: Płatność odrzucona (CARD_DECLINED, INSUFFICIENT_FUNDS, CARD_EXPIRED)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
   schemas:
     Error:
       type: object
@@ -147,6 +152,39 @@ components:
         userId: { type: integer, example: 7 }
         type: { type: string, enum: [MONTHLY, QUARTERLY, ANNUAL] }
         startDate: { type: string, format: date, example: '2026-12-01' }
+    MembershipPlan:
+      type: object
+      properties:
+        type: { type: string, enum: [MONTHLY, QUARTERLY, ANNUAL] }
+        days: { type: integer, example: 30 }
+        price: { type: integer, description: Cena w groszach, example: 12900 }
+        currency: { type: string, example: PLN }
+    PurchaseRequest:
+      type: object
+      required: [type, card]
+      description: Płatność jest symulowana (mock). Pełny numer karty nie jest nigdzie zapisywany.
+      properties:
+        type: { type: string, enum: [MONTHLY, QUARTERLY, ANNUAL] }
+        card:
+          type: object
+          required: [holder, number, expiry, cvc]
+          properties:
+            holder: { type: string, example: Jan Kowalski }
+            number: { type: string, description: '4242 4242 4242 4242 przechodzi, 4000 0000 0000 0002 odrzucona, 4000 0000 0000 9995 brak środków', example: '4242 4242 4242 4242' }
+            expiry: { type: string, pattern: '^(0[1-9]|1[0-2])/\d{2}$', example: '12/29' }
+            cvc: { type: string, example: '123' }
+    Payment:
+      type: object
+      properties:
+        id: { type: integer }
+        membershipId: { type: integer, nullable: true }
+        membershipType: { type: string, enum: [MONTHLY, QUARTERLY, ANNUAL] }
+        amount: { type: integer, description: Kwota w groszach }
+        currency: { type: string }
+        status: { type: string, enum: [SUCCEEDED, DECLINED] }
+        cardLast4: { type: string, example: '4242' }
+        failureCode: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
     Room:
       type: object
       properties:
@@ -431,6 +469,53 @@ paths:
                   history:
                     type: array
                     items: { $ref: '#/components/schemas/Membership' }
+  /memberships/plans:
+    get:
+      tags: [Memberships]
+      summary: Cennik karnetów (zalogowany)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/MembershipPlan' }
+  /memberships/purchase:
+    post:
+      tags: [Memberships]
+      summary: Zakup karnetu z płatnością kartą (MEMBER, płatność testowa)
+      description: Gdy członek ma aktywny karnet, nowy zaczyna się dzień po jego końcu. Przy odmowie płatności karnet nie powstaje, a nieudana płatność jest zapisywana w historii.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PurchaseRequest' }
+      responses:
+        '201':
+          description: Płatność przyjęta, karnet aktywny
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  membership: { $ref: '#/components/schemas/Membership' }
+                  payment: { $ref: '#/components/schemas/Payment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '402': { $ref: '#/components/responses/PaymentDeclined' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /payments/me:
+    get:
+      tags: [Memberships]
+      summary: Moje płatności (MEMBER)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Payment' }
   /memberships/{id}/cancel:
     parameters:
       - $ref: '#/components/parameters/Id'

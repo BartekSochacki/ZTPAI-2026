@@ -6,6 +6,7 @@ import LoginPage from './pages/LoginPage.jsx';
 import RegisterPage from './pages/RegisterPage.jsx';
 import SchedulePage from './pages/SchedulePage.jsx';
 import MyEnrollmentsPage from './pages/MyEnrollmentsPage.jsx';
+import MyMembershipPage from './pages/MyMembershipPage.jsx';
 import TrainerSessionsPage from './pages/TrainerSessionsPage.jsx';
 import SimpleCrudPage from './pages/SimpleCrudPage.jsx';
 import UsersPage from './pages/UsersPage.jsx';
@@ -37,6 +38,7 @@ export default function App() {
           <Route path="/" element={<SchedulePage />} />
           <Route element={<ProtectedRoute roles={['MEMBER']} />}>
             <Route path="/my-enrollments" element={<MyEnrollmentsPage />} />
+            <Route path="/my-membership" element={<MyMembershipPage />} />
           </Route>
           <Route element={<ProtectedRoute roles={['TRAINER']} />}>
             <Route path="/my-sessions" element={<TrainerSessionsPage />} />

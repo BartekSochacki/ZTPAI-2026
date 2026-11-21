@@ -26,6 +26,7 @@ module.exports = {
   rules: {
     cancelDeadlineHours: 2,
     reminderHoursBefore: 24,
-    membershipDays: { MONTHLY: 30, QUARTERLY: 90, ANNUAL: 365 }
+    membershipDays: { MONTHLY: 30, QUARTERLY: 90, ANNUAL: 365 },
+    membershipPrices: { MONTHLY: 12900, QUARTERLY: 34900, ANNUAL: 119900 }
   }
 };

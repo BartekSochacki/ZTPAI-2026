@@ -13,7 +13,12 @@ export default function Layout() {
           <NavLink to="/" end>
             Grafik
           </NavLink>
-          {user.role === 'MEMBER' && <NavLink to="/my-enrollments">Moje zajęcia</NavLink>}
+          {user.role === 'MEMBER' && (
+            <>
+              <NavLink to="/my-enrollments">Moje zajęcia</NavLink>
+              <NavLink to="/my-membership">Mój karnet</NavLink>
+            </>
+          )}
           {user.role === 'TRAINER' && <NavLink to="/my-sessions">Moje prowadzone zajęcia</NavLink>}
           {user.role === 'ADMIN' && (
             <>

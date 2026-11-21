@@ -40,6 +40,15 @@ router.patch(
 router.delete('/users/:id', authenticate, admin, byId, userController.remove);
 
 router.get('/memberships/me', authenticate, authorize('MEMBER'), membershipController.listMine);
+router.get('/memberships/plans', authenticate, membershipController.listPlans);
+router.post(
+  '/memberships/purchase',
+  authenticate,
+  authorize('MEMBER'),
+  validate({ body: membershipSchemas.purchase }),
+  membershipController.purchase
+);
+router.get('/payments/me', authenticate, authorize('MEMBER'), membershipController.listMyPayments);
 router.get(
   '/memberships',
   authenticate,

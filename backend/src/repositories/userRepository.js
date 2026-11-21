@@ -48,4 +48,8 @@ function listTrainers() {
   return db('users').select('id', 'first_name', 'last_name').where({ role: 'TRAINER' }).orderBy(['last_name', 'first_name']);
 }
 
-module.exports = { findByEmail, findById, create, list, updateRole, remove, listTrainers };
+function lockById(id, trx) {
+  return trx('users').select('id', 'role').where({ id }).forUpdate().first();
+}
+
+module.exports = { findByEmail, findById, create, list, updateRole, remove, listTrainers, lockById };

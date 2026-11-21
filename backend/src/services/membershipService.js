@@ -1,8 +1,11 @@
+const db = require('../db/knex');
 const config = require('../config');
 const AppError = require('../errors/AppError');
 const userRepository = require('../repositories/userRepository');
 const membershipRepository = require('../repositories/membershipRepository');
-const { toMembershipDto } = require('../utils/dto');
+const paymentRepository = require('../repositories/paymentRepository');
+const paymentGateway = require('./paymentGateway');
+const { toMembershipDto, toPaymentDto } = require('../utils/dto');
 const { paginated } = require('../utils/pagination');
 const { addDays, toDateString } = require('../utils/dates');
 
@@ -66,4 +69,82 @@ async function expireOutdated(today = toDateString(new Date())) {
   return expired.length;
 }
 
-module.exports = { create, list, listMine, cancel, expireOutdated };
+function listPlans() {
+  return Object.keys(config.rules.membershipDays).map((type) => ({
+    type,
+    days: config.rules.membershipDays[type],
+    price: config.rules.membershipPrices[type],
+    currency: 'PLN'
+  }));
+}
+
+const DECLINE_MESSAGES = {
+  CARD_DECLINED: 'The card was declined',
+  INSUFFICIENT_FUNDS: 'Insufficient funds on the card',
+  CARD_EXPIRED: 'The card has expired'
+};
+
+async function purchase(userId, { type, card }) {
+  const buyer = await userRepository.findById(userId);
+  if (!buyer || buyer.role !== 'MEMBER') {
+    throw AppError.businessRule('Memberships can only be purchased by users with role MEMBER', 'NOT_A_MEMBER');
+  }
+  const amount = config.rules.membershipPrices[type];
+  const charge = await paymentGateway.charge({ amount, currency: 'PLN', card });
+
+  if (charge.status !== 'SUCCEEDED') {
+    await paymentRepository.create({
+      user_id: userId,
+      membership_type: type,
+      amount,
+      currency: 'PLN',
+      status: 'DECLINED',
+      card_last4: charge.cardLast4,
+      failure_code: charge.failureCode
+    });
+    throw AppError.paymentDeclined(DECLINE_MESSAGES[charge.failureCode], charge.failureCode);
+  }
+
+  const result = await db.transaction(async (trx) => {
+    const user = await userRepository.lockById(userId, trx);
+    if (!user || user.role !== 'MEMBER') {
+      throw AppError.businessRule('Memberships can only be purchased by users with role MEMBER', 'NOT_A_MEMBER');
+    }
+    const today = toDateString(new Date());
+    const latestEnd = await membershipRepository.findLatestActiveEnd(userId, today, trx);
+    const startDate = latestEnd ? addDays(latestEnd, 1) : today;
+    const membership = await membershipRepository.create(
+      {
+        user_id: userId,
+        type,
+        start_date: startDate,
+        end_date: addDays(startDate, config.rules.membershipDays[type] - 1),
+        status: 'ACTIVE'
+      },
+      trx
+    );
+    const payment = await paymentRepository.create(
+      {
+        user_id: userId,
+        membership_id: membership.id,
+        membership_type: type,
+        amount,
+        currency: 'PLN',
+        status: 'SUCCEEDED',
+        card_last4: charge.cardLast4,
+        provider_ref: charge.providerRef
+      },
+      trx
+    );
+    return { membership, payment };
+  });
+
+  return { membership: toMembershipDto(result.membership), payment: toPaymentDto(result.payment) };
+}
+
+async function listMyPayments(userId) {
+  const payments = await paymentRepository.listByUser(userId);
+  return payments.map(toPaymentDto);
+}
+
+module.exports = { create, list, listMine, cancel, expireOutdated, listPlans, purchase, listMyPayments };

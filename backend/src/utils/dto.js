@@ -33,6 +33,20 @@ function toMembershipDto(row) {
   return dto;
 }
 
+function toPaymentDto(row) {
+  return {
+    id: row.id,
+    membershipId: row.membership_id,
+    membershipType: row.membership_type,
+    amount: row.amount,
+    currency: row.currency,
+    status: row.status,
+    cardLast4: row.card_last4,
+    failureCode: row.failure_code,
+    createdAt: row.created_at
+  };
+}
+
 function toRoomDto(row) {
   return { id: row.id, name: row.name, capacity: row.capacity };
 }
@@ -98,6 +112,7 @@ module.exports = {
   toUserDto,
   toTrainerDto,
   toMembershipDto,
+  toPaymentDto,
   toRoomDto,
   toClassTypeDto,
   toSessionDto,

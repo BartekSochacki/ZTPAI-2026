@@ -10,6 +10,8 @@ erDiagram
     ROOMS ||--o{ CLASS_SESSIONS : "odbywają się w"
     CLASS_TYPES ||--o{ CLASS_SESSIONS : "jest typem"
     CLASS_SESSIONS ||--o{ ENROLLMENTS : "ma zapisy"
+    USERS ||--o{ PAYMENTS : "płaci"
+    MEMBERSHIPS |o--o| PAYMENTS : "opłacony przez"
 
     USERS {
         int id PK
@@ -63,6 +65,19 @@ erDiagram
         timestamptz created_at
         timestamptz updated_at
     }
+    PAYMENTS {
+        int id PK
+        int user_id FK
+        int membership_id FK "NULL przy odrzuconej płatności"
+        enum membership_type "MONTHLY | QUARTERLY | ANNUAL"
+        int amount "w groszach"
+        string currency
+        enum status "SUCCEEDED | DECLINED"
+        string card_last4
+        string provider_ref
+        string failure_code
+        timestamptz created_at
+    }
 ```
 
 ## Relacje
@@ -75,6 +90,8 @@ erDiagram
 | rooms → class_sessions | 1:N | W sali odbywa się wiele zajęć (nigdy dwa w tym samym czasie). |
 | class_types → class_sessions | 1:N | Typ zajęć (np. Yoga) ma wiele terminów w grafiku. |
 | class_sessions → enrollments | 1:N | Zajęcia mają wielu uczestników i listę rezerwową. |
+| users → payments | 1:N | Każda próba zapłaty za karnet (udana i odrzucona). |
+| memberships → payments | 1:0..1 | Udana płatność wskazuje kupiony karnet; odrzucona nie ma karnetu. |
 
 `users` ↔ `class_sessions` przez `enrollments` to relacja wiele-do-wielu z dodatkowymi danymi (status, kolejność na liście rezerwowej).
 
@@ -83,4 +100,5 @@ erDiagram
 - `UNIQUE (session_id, user_id) WHERE status <> 'CANCELLED'`: jeden aktywny zapis użytkownika na dane zajęcia.
 - `CHECK (ends_at > starts_at)`, `CHECK (capacity > 0)`, `CHECK (end_date >= start_date)`.
 - `ON DELETE RESTRICT` dla sal, typów zajęć i trenerów (nie można usunąć sali, w której są zajęcia).
-- `ON DELETE CASCADE` dla zapisów i karnetów (usunięcie użytkownika usuwa jego dane).
+- `ON DELETE CASCADE` dla zapisów, karnetów i płatności (usunięcie użytkownika usuwa jego dane).
+- `ON DELETE SET NULL` dla `payments.membership_id` (historia płatności zostaje po usunięciu karnetu).

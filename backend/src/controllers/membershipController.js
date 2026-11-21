@@ -16,4 +16,16 @@ async function cancel(req, res) {
   res.json(await membershipService.cancel(req.valid.params.id));
 }
 
-module.exports = { create, list, listMine, cancel };
+function listPlans(req, res) {
+  res.json(membershipService.listPlans());
+}
+
+async function purchase(req, res) {
+  res.status(201).json(await membershipService.purchase(req.user.id, req.valid.body));
+}
+
+async function listMyPayments(req, res) {
+  res.json(await membershipService.listMyPayments(req.user.id));
+}
+
+module.exports = { create, list, listMine, cancel, listPlans, purchase, listMyPayments };

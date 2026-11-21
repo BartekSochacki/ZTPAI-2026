@@ -9,7 +9,7 @@ const app = createApp();
 
 async function resetDatabase() {
   await db.migrate.latest();
-  await db.raw('TRUNCATE enrollments, class_sessions, class_types, rooms, memberships, users RESTART IDENTITY CASCADE');
+  await db.raw('TRUNCATE payments, enrollments, class_sessions, class_types, rooms, memberships, users RESTART IDENTITY CASCADE');
 }
 
 async function createUser({ email, role = 'MEMBER', password = 'Password123!' }) {

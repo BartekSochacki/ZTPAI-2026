@@ -26,6 +26,9 @@ const MESSAGES = {
   MEMBERSHIP_OVERLAP: 'Użytkownik ma już aktywny karnet w tym okresie.',
   MEMBERSHIP_IN_PAST: 'Taki karnet byłby już nieważny.',
   MEMBERSHIP_NOT_ACTIVE: 'Można anulować tylko aktywny karnet.',
+  CARD_DECLINED: 'Płatność odrzucona przez bank. Spróbuj innej karty.',
+  INSUFFICIENT_FUNDS: 'Brak środków na karcie.',
+  CARD_EXPIRED: 'Karta straciła ważność.',
   SELF_ROLE_CHANGE: 'Nie możesz zmienić własnej roli.',
   SELF_DELETE: 'Nie możesz usunąć własnego konta.',
   INTERNAL_ERROR: 'Błąd serwera. Spróbuj ponownie później.'

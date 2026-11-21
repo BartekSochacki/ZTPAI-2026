@@ -387,3 +387,37 @@ tr.dim td {
     justify-content: flex-start;
   }
 }
+
+.alert.info {
+  background: #e0f2f1;
+  color: var(--primary-dark);
+}
+
+.plans {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.plan {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 0;
+}
+
+.plan h3,
+.plan p {
+  margin: 0;
+}
+
+.plan .price {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.plan button {
+  margin-top: 0.6rem;
+}

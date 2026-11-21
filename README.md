@@ -57,6 +57,18 @@ Zatrzymanie: `docker compose down`. Usunięcie danych: `docker compose down -v`.
 
 To dane testowe z seeda (`backend/src/db/seeds/01_demo_data.js`), a nie prawdziwe sekrety.
 
+### Płatność testowa
+
+Zakup karnetu (zakładka **Mój karnet**) używa atrapy bramki płatności. Najprościej przetestować to na nowym koncie założonym przez rejestrację.
+
+| Numer karty | Wynik |
+|---|---|
+| 4242 4242 4242 4242 | płatność przyjęta |
+| 4000 0000 0000 0002 | odrzucona (CARD_DECLINED) |
+| 4000 0000 0000 9995 | brak środków (INSUFFICIENT_FUNDS) |
+
+Data ważności: dowolna przyszła w formacie MM/RR (przeszła daje CARD_EXPIRED), CVC: dowolne 3 cyfry.
+
 ## Uruchomienie bez Dockera (tryb developerski)
 
 Wymagane: Node.js 22+ i działający PostgreSQL z bazami `fitness` i `fitness_test`.
@@ -90,8 +102,8 @@ npm run test:integration
 ```
 
 - `npm test` uruchamia wszystkie testy.
-- `npm run test:unit` uruchamia 23 testy jednostkowe logiki biznesowej i nie wymaga bazy.
-- `npm run test:integration` uruchamia 16 testów integracyjnych REST API na bazie z `TEST_DATABASE_URL`.
+- `npm run test:unit` uruchamia 29 testów jednostkowych logiki biznesowej i nie wymaga bazy.
+- `npm run test:integration` uruchamia 23 testy integracyjne REST API na bazie z `TEST_DATABASE_URL`.
 
 ## Główne funkcjonalności
 
@@ -112,7 +124,8 @@ npm run test:integration
    - codziennie o 00:05 wygasza przeterminowane karnety,
    - co 10 minut wysyła przypomnienia o zajęciach w ciągu najbliższych 24 h.
 7. **Karnety (ADMIN)**: przyznawanie (data końca liczona z typu), anulowanie, brak nakładających się karnetów.
-8. **Uwierzytelnianie i autoryzacja**: JWT oraz role MEMBER, TRAINER i ADMIN. Trener widzi uczestników tylko swoich zajęć.
+8. **Zakup karnetu (MEMBER) z płatnością testową**: członek wybiera karnet z cennika i płaci kartą. Płatność obsługuje atrapa bramki (`services/paymentGateway.js`), więc żadne pieniądze nie są pobierane. Przy aktywnym karnecie nowy zaczyna się dzień po jego końcu. Zapisywane są tylko 4 ostatnie cyfry karty, a każda próba (udana i odrzucona) trafia do tabeli `payments`.
+9. **Uwierzytelnianie i autoryzacja**: JWT oraz role MEMBER, TRAINER i ADMIN. Trener widzi uczestników tylko swoich zajęć.
 
 ## Struktura projektu
 
@@ -168,6 +181,9 @@ Ostateczna wersja projektu jest oznaczona tagiem `v1.0`. Zmiany wprowadzone po t
 | GET | /api/enrollments/me | MEMBER | moje zapisy |
 | PATCH | /api/enrollments/:id/cancel | MEMBER (swoje), ADMIN | rezygnacja |
 | GET | /api/memberships/me | MEMBER | mój karnet |
+| GET | /api/memberships/plans | zalogowany | cennik karnetów |
+| POST | /api/memberships/purchase | MEMBER | zakup karnetu z płatnością testową |
+| GET | /api/payments/me | MEMBER | historia moich płatności |
 | GET, POST | /api/memberships | ADMIN | lista / przyznanie karnetu |
 | PATCH | /api/memberships/:id/cancel | ADMIN | anulowanie karnetu |
 | GET, POST, PUT, DELETE | /api/rooms | odczyt: zalogowany, zapis: ADMIN | sale |
@@ -191,6 +207,7 @@ Wszystkie błędy mają jednolity format:
 | 401 | brak lub nieważny token |
 | 403 | brak uprawnień |
 | 404 | brak zasobu |
+| 402 | płatność odrzucona (karta odrzucona, brak środków, karta nieważna) |
 | 409 | konflikt (duplikat, kolizja terminu, konflikt wersji) |
 | 422 | naruszenie reguły biznesowej |
 | 500 | nieoczekiwany błąd serwera |

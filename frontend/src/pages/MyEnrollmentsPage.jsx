@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { ErrorMessage, SuccessMessage } from '../components/ui.jsx';
 import { ENROLLMENT_LABELS, MEMBERSHIP_LABELS, MEMBERSHIP_STATUS_LABELS, formatDateTime } from '../format.js';
@@ -57,7 +58,8 @@ export default function MyEnrollmentsPage() {
           </p>
         ) : (
           <p>
-            <span className="badge full">Brak aktywnego karnetu</span> Zapisy na zajęcia wymagają aktywnego karnetu.
+            <span className="badge full">Brak aktywnego karnetu</span> Zapisy na zajęcia wymagają aktywnego karnetu.{' '}
+            <Link to="/my-membership">Kup karnet</Link>
           </p>
         )}
         {membership?.history.length > 1 && (

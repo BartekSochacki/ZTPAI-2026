@@ -16,8 +16,17 @@ function findOverlapping(userId, startDate, endDate) {
     .first();
 }
 
-async function create(data) {
-  const [membership] = await db('memberships').insert(data).returning('*');
+async function findLatestActiveEnd(userId, fromDate, trx = db) {
+  const row = await trx('memberships')
+    .where({ user_id: userId, status: 'ACTIVE' })
+    .andWhere('end_date', '>=', fromDate)
+    .max({ endDate: 'end_date' })
+    .first();
+  return row?.endDate ?? null;
+}
+
+async function create(data, trx = db) {
+  const [membership] = await trx('memberships').insert(data).returning('*');
   return membership;
 }
 
@@ -63,6 +72,7 @@ function expireOutdated(today) {
 module.exports = {
   findActiveForDate,
   findOverlapping,
+  findLatestActiveEnd,
   create,
   findById,
   list,
