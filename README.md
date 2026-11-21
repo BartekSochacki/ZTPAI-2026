@@ -254,21 +254,134 @@ Logika biznesowa (serwisy) nie zależy od HTTP, dlatego testy jednostkowe sprawd
 
 ## Model danych (ERD)
 
-![ERD](docs/erd.svg)
+Siedem tabel: `users`, `memberships`, `rooms`, `class_types`, `class_sessions`, `enrollments`, `payments`. Schemat tworzą migracje Knex w `backend/src/db/migrations/`, a pełny opis jest też w [docs/ERD.md](docs/ERD.md).
 
-Siedem tabel: `users`, `memberships`, `rooms`, `class_types`, `class_sessions`, `enrollments`, `payments`. Pełny opis kolumn, relacji i ograniczeń jest w [docs/ERD.md](docs/ERD.md).
+### Diagram ERD
 
-| Relacja | Typ |
-|---|---|
-| users → memberships | 1:N |
-| users → class_sessions (trener) | 1:N |
-| rooms → class_sessions | 1:N |
-| class_types → class_sessions | 1:N |
-| users ↔ class_sessions przez enrollments | N:M (z danymi: status, kolejność) |
-| users → payments | 1:N |
-| memberships → payments | 1:0..1 |
+![Diagram ERD](docs/erd.svg)
 
-Schemat bazy tworzą migracje Knex w `backend/src/db/migrations/`.
+Ten sam diagram w wersji tekstowej (GitHub rysuje go automatycznie):
+
+```mermaid
+erDiagram
+    USERS ||--o{ MEMBERSHIPS : "posiada"
+    USERS ||--o{ ENROLLMENTS : "zapisuje się"
+    USERS ||--o{ CLASS_SESSIONS : "prowadzi (trener)"
+    ROOMS ||--o{ CLASS_SESSIONS : "odbywają się w"
+    CLASS_TYPES ||--o{ CLASS_SESSIONS : "jest typem"
+    CLASS_SESSIONS ||--o{ ENROLLMENTS : "ma zapisy"
+    USERS ||--o{ PAYMENTS : "płaci"
+    MEMBERSHIPS |o--o| PAYMENTS : "opłacony przez"
+
+    USERS {
+        int id PK
+        string email UK
+        string password_hash
+        string first_name
+        string last_name
+        enum role "MEMBER | TRAINER | ADMIN"
+        timestamptz created_at
+    }
+    MEMBERSHIPS {
+        int id PK
+        int user_id FK
+        enum type "MONTHLY | QUARTERLY | ANNUAL"
+        date start_date
+        date end_date
+        enum status "ACTIVE | EXPIRED | CANCELLED"
+        timestamptz created_at
+    }
+    ROOMS {
+        int id PK
+        string name UK
+        int capacity
+        timestamptz created_at
+    }
+    CLASS_TYPES {
+        int id PK
+        string name UK
+        text description
+        timestamptz created_at
+    }
+    CLASS_SESSIONS {
+        int id PK
+        int class_type_id FK
+        int trainer_id FK
+        int room_id FK
+        timestamptz starts_at
+        timestamptz ends_at
+        int capacity
+        enum status "SCHEDULED | CANCELLED"
+        int version "optimistic locking"
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    ENROLLMENTS {
+        int id PK
+        int session_id FK
+        int user_id FK
+        enum status "ENROLLED | WAITLISTED | CANCELLED"
+        boolean reminder_sent
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    PAYMENTS {
+        int id PK
+        int user_id FK
+        int membership_id FK "NULL przy odrzuconej płatności"
+        enum membership_type "MONTHLY | QUARTERLY | ANNUAL"
+        int amount "w groszach"
+        string currency
+        enum status "SUCCEEDED | DECLINED"
+        string card_last4
+        string provider_ref
+        string failure_code
+        timestamptz created_at
+    }
+```
+
+### Tabele
+
+| Tabela | Co przechowuje | Kolumny |
+|---|---|---|
+| `users` | konta użytkowników i ich role | id, email, password_hash, first_name, last_name, role, created_at |
+| `memberships` | karnety członków | id, user_id, type, start_date, end_date, status, created_at |
+| `rooms` | sale i ich pojemność | id, name, capacity, created_at |
+| `class_types` | rodzaje zajęć (Yoga, Pilates…) | id, name, description, created_at |
+| `class_sessions` | konkretne zajęcia w grafiku | id, class_type_id, trainer_id, room_id, starts_at, ends_at, capacity, status, version, created_at, updated_at |
+| `enrollments` | zapisy i lista rezerwowa | id, session_id, user_id, status, reminder_sent, created_at, updated_at |
+| `payments` | płatności za karnety | id, user_id, membership_id, membership_type, amount, currency, status, card_last4, provider_ref, failure_code, created_at |
+
+### Powiązania (klucze obce w bazie)
+
+Lista odczytana bezpośrednio z bazy PostgreSQL (`information_schema`):
+
+| Klucz obcy | Wskazuje na | Relacja | Przy usunięciu rekordu nadrzędnego |
+|---|---|---|---|
+| `memberships.user_id` | `users.id` | użytkownik ma wiele karnetów (1:N) | `CASCADE`: karnety są usuwane razem z użytkownikiem |
+| `class_sessions.trainer_id` | `users.id` | trener prowadzi wiele zajęć (1:N) | `RESTRICT`: nie można usunąć trenera, który ma zajęcia |
+| `class_sessions.room_id` | `rooms.id` | w sali odbywa się wiele zajęć (1:N) | `RESTRICT`: nie można usunąć sali, w której są zajęcia |
+| `class_sessions.class_type_id` | `class_types.id` | typ zajęć ma wiele terminów (1:N) | `RESTRICT`: nie można usunąć używanego typu zajęć |
+| `enrollments.session_id` | `class_sessions.id` | zajęcia mają wielu uczestników (1:N) | `CASCADE`: zapisy są usuwane razem z zajęciami |
+| `enrollments.user_id` | `users.id` | użytkownik ma wiele zapisów (1:N) | `CASCADE`: zapisy są usuwane razem z użytkownikiem |
+| `payments.user_id` | `users.id` | użytkownik ma wiele płatności (1:N) | `CASCADE`: płatności są usuwane razem z użytkownikiem |
+| `payments.membership_id` | `memberships.id` | udana płatność wskazuje kupiony karnet (1:0..1) | `SET NULL`: historia płatności zostaje |
+
+Tabela `enrollments` łączy `users` i `class_sessions` w relację wiele-do-wielu (N:M) z dodatkowymi danymi: status zapisu i kolejność na liście rezerwowej (`created_at`).
+
+Próba usunięcia rekordu chronionego przez `RESTRICT` kończy się odpowiedzią 409 `RELATION_CONFLICT` („Nie można usunąć – rekord jest powiązany z innymi danymi.”).
+
+### Ograniczenia w bazie
+
+| Ograniczenie | Tabela | Co pilnuje |
+|---|---|---|
+| `users_email_unique` | users | jeden e-mail = jedno konto |
+| `rooms_name_unique`, `class_types_name_unique` | rooms, class_types | unikalne nazwy sal i typów zajęć |
+| `enrollments_active_unique` (indeks częściowy `WHERE status <> 'CANCELLED'`) | enrollments | jeden aktywny zapis użytkownika na dane zajęcia |
+| `class_sessions_time_check` | class_sessions | koniec zajęć po początku |
+| `class_sessions_capacity_check`, `rooms_capacity_check` | class_sessions, rooms | limit miejsc i pojemność większe od zera |
+| `memberships_dates_check` | memberships | data końca karnetu nie wcześniej niż data początku |
+| typy `ENUM` | wszystkie statusy i role | baza przyjmuje tylko dozwolone wartości |
 
 ## Uwierzytelnianie i autoryzacja
 
